@@ -162,7 +162,7 @@ of the chapter).
 
 #+BEGIN_SRC ruby :exports both :session
   f = [0, 1, 0, 1, 0, 1]
-  dft(f)
+  p dft(f)
 #+END_SRC
 
 #+RESULTS:
@@ -316,7 +316,7 @@ end
 Evaluating that on the same input as earlier we get (roughly) the same result as before.
 
 #+BEGIN_SRC ruby :session :exports both
-matrix_dft(f).to_a
+p matrix_dft(f).to_a
 #+END_SRC
 
 #+RESULTS:
@@ -361,7 +361,7 @@ the inverse DFT of an input
 
 #+BEGIN_SRC ruby :session :exports both
 g = matrix_dft(f)
-matrix_idft(g).to_a
+p matrix_idft(g).to_a
 #+END_SRC
 
 #+RESULTS:
