@@ -7,13 +7,23 @@
 
 ** Motivation
 
-I felt the chapter was a bit light on the reasons why it might
-sometimes be easier to transform an image into its Fourier-transformed
-version, so I thought I'd make a few notes to expand on that.
+Intuitively I've always understood the Fourier Transform in terms of
+telling us how much "energy" is in each frequency of an input
+signal. I like to think of the graphic EQ on a hi-fi amplifier as
+being like a Fourier Transform. It takes the input music, splits it
+into frequency bands, and allows us to change the input by
+manipulating the frequency directly - increasing the bass, or rolling
+off the treble, for example.
 
-Here is an image and it's FFT. I've converted the FFT to a power
+The chapter talks about applications of the FFT for image processing
+and working with polynomials, which is a bit less intuitive for me, so
+I've tried to expand on the image example to make it more obvious why
+we care about the FFT in image processing.
+
+Here is an image and its FFT. I've converted the FFT to a power
 spectrum (which combines the real and imaginary part and takes the
-log) because that makes it easier to see what's happening.
+log) because that makes it easier to see what's happening. I think the
+book did something like this too in the example on page 217.
 
 #+BEGIN_SRC R :session :exports results :results graphics :file img.pdf
   library(imager)
@@ -30,6 +40,11 @@ log) because that makes it easier to see what's happening.
 
 #+RESULTS:
 [[file:img.pdf]]
+
+The FFT of the image is a representation of it's "spectrum". Higher
+frequency parts of the image are further away from the centre of the
+FFT. But it's not clear what we'd expect the spectrum of a picture of
+some boats to be.
 
 What happens if we add some periodic noise to the original image?
 
@@ -56,9 +71,14 @@ What happens if we add some periodic noise to the original image?
 [[file:noisy_img.pdf]]
 
 The repeating diagonal lines in the original image appear as bright
-"stars" when we take the FFT. It's much easier to identify these
-bright spots, and perform some crude surgery on them (by setting their
-real and imaginary components to 0).
+"stars" when we take the FFT. That's because they have a strong
+"frequency" that repeats throughout the image. The frequency domain
+representation that we get from taking the FFT makes this apparent.
+
+Say we wanted to remove this periodic noise from the image. It's much
+easier to identify these bright spots, and perform some crude surgery
+on them (by setting their real and imaginary components to 0) when
+working in the frequency domain.
 
 #+BEGIN_SRC R :session :exports results :results graphics :file clean_spectrum.pdf
 clean_img.fft <- noisy_img.fft
@@ -78,6 +98,9 @@ plot(clean_img.spectrum, main="Clean FFT")
 
 #+RESULTS:
 [[file:clean_spectrum.pdf]]
+
+We can then take the Inverse FFT of the FFT we've operated on, and
+turn it back into an image.
 
 #+BEGIN_SRC R :session :exports results :results graphics :file clean_img.pdf
 clean_img <- FFT(clean_img.fft$real, clean_img.fft$imag, inverse = TRUE)$real
