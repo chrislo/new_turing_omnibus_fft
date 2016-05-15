@@ -1,0 +1,350 @@
+#+TITLE:     Notes on Chapter 32: The Fast Fourier Transform
+#+AUTHOR:    Chris Lowis
+#+EMAIL:     chris.lowis@gmail.com
+#+OPTIONS:   H:2 num:nil toc:nil \n:nil @:t ::t |:t ^:{} _:{} *:t TeX:t LaTeX:t
+
+* Chapter 32: The Fast Fourier Transform
+
+** Motivation
+
+I felt the chapter was a bit light on the reasons why it might
+sometimes be easier to transform an image into its Fourier-transformed
+version, so I thought I'd make a few notes to expand on that.
+
+Here is an image and it's FFT. I've converted the FFT to a power
+spectrum (which combines the real and imaginary part and takes the
+log) because that makes it easier to see what's happening.
+
+#+BEGIN_SRC R :session :exports results :results graphics :file img.pdf
+  library(imager)
+
+  img <- grayscale(boats)
+  img.fft <- FFT(img)
+  img.spectrum <- log(1 + sqrt(img.fft$real^2+img.fft$imag^2))
+
+  par(mfrow=c(1,2))
+
+  plot(img, main="Original Image")
+  plot(img.spectrum, main="FFT of original Image")
+#+END_SRC
+
+#+RESULTS:
+[[file:img.pdf]]
+
+What happens if we add some periodic noise to the original image?
+
+#+BEGIN_SRC R :session :exports results :results graphics :file noisy_img.pdf
+  library(imager)
+
+  width <- dim(img)[1]
+  height <- dim(img)[2]
+
+  noise <- as.cimg(function(x,y) ifelse(abs(x-y) %% 3 == 0, 0, 1), width, height)
+
+  noisy_img <- (img * noise)
+
+  noisy_img.fft <- FFT(noisy_img)
+  noisy_img.spectrum <- log(1 + sqrt(noisy_img.fft$real^2+noisy_img.fft$imag^2))
+
+  par(mfrow=c(1,2))
+
+  plot(noisy_img, main="Noisy Image")
+  plot(noisy_img.spectrum, main="FFT of noisy Image")
+#+END_SRC
+
+#+RESULTS:
+[[file:noisy_img.pdf]]
+
+The repeating diagonal lines in the original image appear as bright
+"stars" when we take the FFT. It's much easier to identify these
+bright spots, and perform some crude surgery on them (by setting their
+real and imaginary components to 0).
+
+#+BEGIN_SRC R :session :exports results :results graphics :file clean_spectrum.pdf
+clean_img.fft <- noisy_img.fft
+
+clean_img.fft$imag[75:95, 250:270] <- 0
+clean_img.fft$real[75:95, 250:270] <- 0
+clean_img.fft$imag[165:185, 115:135] <- 0
+clean_img.fft$real[165:185, 115:135] <- 0
+
+clean_img.spectrum <- log(1 + sqrt(clean_img.fft$real^2+clean_img.fft$imag^2))
+
+par(mfrow=c(1,2))
+
+plot(noisy_img.spectrum, main="Noisy FFT")
+plot(clean_img.spectrum, main="Clean FFT")
+#+END_SRC
+
+#+RESULTS:
+[[file:clean_spectrum.pdf]]
+
+#+BEGIN_SRC R :session :exports results :results graphics :file clean_img.pdf
+clean_img <- FFT(clean_img.fft$real, clean_img.fft$imag, inverse = TRUE)$real
+
+par(mfrow=c(1,3))
+plot(img, main="Original Image")
+plot(noisy_img, main="Noisy Image")
+plot(clean_img, main="Clean Image")
+#+END_SRC
+
+#+RESULTS:
+[[file:clean_img.pdf]]
+
+** The DFT
+
+The discrete version of the fourier transform is
+
+\[
+F_k = \sum\limits_{n=0}^{N-1} f_n e^{-2\pi i k n / N}
+\]
+
+I've used a slightly different notation here than in the chapter,
+because I found it easier to read when it was all written on a single
+line.
+
+The large \( \sum \) is notation for summation, and the \( i \) is
+the complex number \( \sqrt -1 \). We can translate this equation
+into the equivalent ruby code
+
+#+BEGIN_SRC ruby :session
+  require 'complex'
+
+  def dft(f)
+    bigN = f.length
+    bigF = Array.new(bigN)
+
+    bigF.each_with_index do |_, k|
+      bigF[k] = 0
+
+      0.upto(bigN-1).each do |n|
+        bigF[k] = bigF[k] +
+          ( f[n] * Math::E ** (-2.0 * Math::PI * Complex(0, 1) * k * n / bigN) )
+      end
+    end
+
+    bigF
+  end
+#+END_SRC
+
+#+RESULTS:
+: :dft
+
+I've not tried to be idiomatic here, rather to mirror the equation as
+closely as possible in ruby.
+
+Let's use the code above to calculate the DFT of the input "image" \(
+[0, 1, 0, 1, 0, 1] \) (this is exercise 1 in the problems at the end
+of the chapter).
+
+#+BEGIN_SRC ruby :exports both :session
+  f = [0, 1, 0, 1, 0, 1]
+  dft(f)
+#+END_SRC
+
+#+RESULTS:
+| 3+0i                                           |
+| 1.1102230246251565e-16-1.1102230246251565e-16i |
+| 3.885780586188048e-16+1.1102230246251565e-16i  |
+| -3.0-2.8785389586328684e-15i                   |
+| -7.771561172376096e-16+3.3306690738754696e-16i |
+| -1.2212453270876722e-15-3.219646771412954e-15i |
+
+There's a lot of numerical noise here, but the output is \( [3, 0, 0,
+-3, 0, 0] \).
+
+One thing that wasn't very clear in the chapter is that \( k \) takes
+integer values, and by convention these are normally chosen to be \(
+[0 \dots N-1] \). Note that this also means that \( F_k \) is the same
+length as \( f \), the input to the DFT.
+
+** The DFT in Matrix Form
+
+The chapter then goes on to show how the DFT can be written in an
+alternative, more compact form, using matrices.
+
+You may recall from maths at school that the product of a matrix \( \mathbf{A} \)
+
+\[
+\mathbf{A} = \begin{pmatrix}
+a & b & c \\
+p & q & r \\
+u & v & w
+\end{pmatrix}
+\]
+
+with a vector \( \mathbf{x} \)
+
+\[
+\mathbf{x} = \begin{pmatrix}
+x \\
+y \\
+z
+\end{pmatrix}
+\]
+
+is defined as follows
+
+\[
+\mathbf{Ax} = \begin{pmatrix}
+a & b & c \\
+p & q & r \\
+u & v & w
+\end{pmatrix} \begin{pmatrix}
+x \\
+y \\
+z
+\end{pmatrix} = \begin{pmatrix}
+ax + by + cz \\
+px + qy + rz \\
+ux + vy + wz
+\end{pmatrix}
+\]
+
+Notice that the result of multiplying a matrix by an input vector is a
+new vector with the same number of elements as the input. The first
+element in the output is the sums of the products of the the first row
+of the matrix with each of the input vectors elements. Compare this
+with the first equation for the DFT.
+
+Consider taking the DFT of a three-element input vector. We can
+rewrite that first equation in matrix form
+
+\[
+\mathbf{g} = \mathbf{A}\mathbf{f}^T
+\]
+
+where
+
+\[
+\mathbf{A} = \begin{pmatrix}
+1 & 1 & 1 \\
+1 & \omega & \omega^2 \\
+1 & \omega^2 & \omega^4
+\end{pmatrix}
+\]
+
+and
+
+\[
+\omega = e^{\frac{-2\pi i}{3}}
+\]
+
+In general, the DFT matrix \( \mathbf{A} \) for an input image of size
+\( N \) is
+
+\[
+A = \begin{bmatrix}
+1&1&1&1&\cdots &1 \\
+1&\omega&\omega^2&\omega^3&\cdots&\omega^{N-1} \\
+1&\omega^2&\omega^4&\omega^6&\cdots&\omega^{2(N-1)}\\
+1&\omega^3&\omega^6&\omega^9&\cdots&\omega^{3(N-1)}\\
+\vdots&\vdots&\vdots&\vdots&\ddots&\vdots\\
+1&\omega^{N-1}&\omega^{2(N-1)}&\omega^{3(N-1)}&\cdots&\omega^{(N-1)(N-1)}\\
+\end{bmatrix}
+\]
+
+where
+
+\[
+\omega = e^{\frac{-2\pi i}{N}}
+\]
+
+** The DFT in Matrix Form in Ruby
+
+We can implement that equation in ruby too. Doing matrix operations in
+ruby using the standard library is a bit clunky, as accessing
+individual elements of a matrix by their row and column numbers is not
+supported. We can get around that by monkey patching the ~Matrix~ class
+
+#+BEGIN_SRC ruby :session
+require 'matrix'
+
+class Matrix
+  def []=(row, column, value)
+    @rows[row][column] = value
+  end
+end
+#+END_SRC
+
+#+RESULTS:
+: :[]=
+
+We then define a matrix version of the DFT as follows
+
+#+BEGIN_SRC ruby :session
+def matrix_dft(f)
+  bigN = f.size
+  bigA = Matrix.identity(bigN)
+
+  omega = Math::E ** (-2.0 * Math::PI * Complex(0, 1) / bigN)
+
+  bigA.each_with_index do |_, row, col|
+    bigA[row, col] = omega ** (row * col)
+  end
+
+  bigA * Vector.elements(f)
+end
+#+END_SRC
+
+#+RESULTS:
+: :matrix_dft
+
+Evaluating that on the same input as earlier we get (roughly) the same result as before.
+
+#+BEGIN_SRC ruby :session :exports both
+matrix_dft(f).to_a
+#+END_SRC
+
+#+RESULTS:
+| 3+0i                                           |
+| -4.440892098500626e-16+1.1102230246251565e-16i |
+| -9.992007221626409e-16+2.220446049250313e-16i  |
+| -3.0000000000000004-3.885780586188048e-15i     |
+| 2.1094237467877974e-15-4.440892098500626e-16i  |
+| 2.55351295663786e-15-4.440892098500626e-16i    |
+
+** The Inverse DFT in Matrix Form in Ruby
+
+Converting back from a fourier transformed image to the original image
+can be achieved by multiplying by the inverse of \( \mathbf{A} \)
+
+\[
+\mathbf{f} = \mathbf{A}^{-1}\mathbf{g}^T
+\]
+
+Which we can write in ruby as
+
+#+BEGIN_SRC ruby :session
+def matrix_idft(g)
+  bigN = g.size
+  bigA = Matrix.identity(bigN)
+
+  omega = Math::E ** (-2.0 * Math::PI * Complex(0, 1) / bigN)
+
+  bigA.each_with_index do |_, row, col|
+    bigA[row, col] = omega ** (row * col)
+  end
+
+  bigA.inverse * Vector.elements(g)
+end
+#+END_SRC
+
+#+RESULTS:
+: :matrix_idft
+
+We can check that our implementation works by taking the DFT and then
+the inverse DFT of an input
+
+#+BEGIN_SRC ruby :session :exports both
+g = matrix_dft(f)
+matrix_idft(g).to_a
+#+END_SRC
+
+#+RESULTS:
+| -1.9721522630525295e-31-1.5728159515523116e-16i |
+| 0.9999999999999999+9.00872486212117e-17i        |
+| 1.6653345369377323e-16-2.4790280238887596e-18i  |
+| 1.0+0.0i                                        |
+| -2.775557561562888e-16+4.873832071660557e-17i   |
+| 1.0000000000000002-1.4559839985247062e-16i      |

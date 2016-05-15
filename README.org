@@ -1,0 +1,5 @@
+* New Turing Omnibus Chapter 32 (The Fast Fourier Transform)
+
+Some notes (in PDF generated from an emacs org mode source document)
+on Chapter 32 of the New Turing Omnibus prepared to help members of
+the London Computation Club read and understand the chapter.
