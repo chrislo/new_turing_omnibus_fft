@@ -41,7 +41,7 @@ book did something like this too in the example on page 217.
 #+RESULTS:
 [[file:img.pdf]]
 
-The FFT of the image is a representation of it's "spectrum". Higher
+The FFT of the image is a representation of its "spectrum". Higher
 frequency parts of the image are further away from the centre of the
 FFT. But it's not clear what we'd expect the spectrum of a picture of
 some boats to be.
