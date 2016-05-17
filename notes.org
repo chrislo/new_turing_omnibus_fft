@@ -1,3 +1,5 @@
+# -*- mode: org; eval: (chruby "ruby-2.2.3") -*-
+
 #+TITLE:     Notes on Chapter 32: The Fast Fourier Transform
 #+AUTHOR:    Chris Lowis
 #+EMAIL:     chris.lowis@gmail.com
@@ -9,11 +11,10 @@
 
 Intuitively I've always understood the Fourier Transform in terms of
 telling us how much "energy" is in each frequency of an input
-signal. I like to think of the graphic EQ on a hi-fi amplifier as
-being like a Fourier Transform. It takes the input music, splits it
-into frequency bands, and allows us to change the input by
-manipulating the frequency directly - increasing the bass, or rolling
-off the treble, for example.
+signal.
+
+[[http://betterexplained.com/articles/an-interactive-guide-to-the-fourier-transform/][This article on better explained]] does a great job of explaining what a
+(Discrete) Fourier Transform is. We can work through it together.
 
 The chapter talks about applications of the FFT for image processing
 and working with polynomials, which is a bit less intuitive for me, so
